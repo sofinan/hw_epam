@@ -1,0 +1,28 @@
+---
+- hosts: nodes
+  become: yes
+  vars:
+    grubfile: /etc/default/grub 
+  tasks:
+    - name: Enable {{ daemon }} service
+      service:
+        name: NetworkManager
+        enabled: no
+        state: stopped
+    
+    - name: Check if params exists
+      lineinfile:
+        path: "{{ grubfile }}"
+        regexp: 'GRUB_CMDLINE_LINUX'
+        state: absent    
+                
+    - name: Add params to file grub
+      lineinfile:
+        path: "{{ grubfile }}"
+        line: |
+          GRUB_CMDLINE_LINUX="crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap rhgb quiet net.ifnames=0 biosdevname=0"
+ 
+    - name: apply changes to grub
+      command: /sbin/grub2-mkconfig  
+    
+    

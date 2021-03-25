@@ -1,0 +1,31 @@
+---
+- hosts: nodes
+  become: yes
+  vars:
+    daemon: httpd
+    filepath: /var/www/html
+    filename: index.html
+  tasks:
+    - name: remove {{ daemon }} service
+      yum:  
+        name: "{{ daemon }}"
+        state: absent
+    
+    - name: Create file in the dir
+      file:
+        path: "{{ filepath }}/{{ filename }}"
+        state: absent    
+
+    - name: enable httpd ports
+      firewalld:
+        service: http
+        permanent: true
+        state: disabled
+      notify:
+      - Restart firewalld
+
+  handlers:
+    - name: Restart firewalld
+      service:
+        name: firewalld
+        state: restarted

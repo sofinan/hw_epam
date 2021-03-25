@@ -1,0 +1,87 @@
+---
+- hosts: nodes
+  vars:
+    daemon: vsftpd
+    anon_access: YES
+    ftpdir: /var/ftp/pub
+    ftpperm: 0777
+  become: yes
+  gather_facts: no
+  tasks:
+
+    - name: Install {{ daemon }} service
+      yum:  
+        name: "{{ item }}"
+        state: latest
+      with_items:
+        - net-tools
+        - "{{ daemon }}"
+        - policycoreutils-python     
+
+    - name: Copy config for {{ daemon }}
+      template:
+        src: vsftpd.j2
+        dest: /etc/vsftpd/vsftpd.conf
+      notify:
+        - Restart vsftpd
+    
+    - name: Force restart vsftpd
+      debug:
+        msg: "Force restart"
+      notify: Restart vsftpd
+      changed_when: true    
+    
+    - name: Change permission to ftp pub dir
+      file:
+         path: "{{ ftpdir }}"
+         mode: "{{ ftpperm }}"
+         owner: ftp
+         group: ftp
+    
+    - name: Change SELinux context
+      sefcontext:
+        target: "{{ ftpdir }}"
+        setype: public_content_rw_t
+        state: present
+
+    - name: Allow write
+      seboolean:
+        name: allow_ftpd_anon_write
+        state: yes
+        persistent: yes 
+
+    - name: Enable {{ daemon }} service
+      service:
+        name: "{{ daemon }}"
+        enabled: yes
+        state: started          
+        
+    - name: Check whether {{ daemon }} service is installed
+      command: /usr/bin/systemctl status {{ daemon }}
+      register: my_output
+      changed_when: false
+ 
+    - name: send message if {{ daemon }} is not startd 
+      debug:
+        msg: " {{ daemon }} is not running"
+      when:
+        my_output.rc!=0
+    
+           
+    - name: enable {{ daemon }} ports
+      firewalld:
+        service: ftp
+        permanent: true
+        state: enabled
+      notify:
+      - Restart firewalld
+
+  handlers:
+    - name: Restart firewalld
+      service:
+        name: firewalld
+        state: restarted
+    - name: Restart vsftpd
+      service:
+        name: vsftpd
+        state: restarted
