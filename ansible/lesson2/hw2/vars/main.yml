@@ -1,0 +1,5 @@
+---
+# vars file for hw2
+daemon: httpd
+filepath: /var/www/html
+filename: index.html
